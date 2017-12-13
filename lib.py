@@ -17,14 +17,13 @@ import random
 
 from define import(
     JOINING_ASES,
-    MAX_NEIGHBORS,
+    OPEN_PORTS,
     CHOSEN_NEIGHBORS,
     MAX_TOTAL,
     USE_PF
 )
 
 
-random.seed()
 
 
 class ASInformation(object):
@@ -32,14 +31,19 @@ class ASInformation(object):
     Class to represent all information of an AS
     """
     def __init__(self, ISD, AS):
+        random.seed()
         self.AS = AS
         self.ISD = ISD
         self.neighbors = []
         self.PF = 5
-        if MAX_NEIGHBORS:
+        if OPEN_PORTS:
             self.max_neighbors = random.randint(1,JOINING_ASES)
+            if MAX_TOTAL < self.max_neighbors:
+                self.max_neighbors = MAX_TOTAL
         else:
-            self.max_neighbors = JOINING_ASES
+            self.max_neighbors = MAX_TOTAL
+        if AS == 1 and ISD == 1:
+            self.max_neighbors = MAX_TOTAL
 
     def getdict(self):
         dict = {}
@@ -49,6 +53,7 @@ class ASInformation(object):
         return dict
 
     def getdegree(self):
+        print(len(self.neighbors), self.ISD, self.AS)
         return len(self.neighbors)
 
     def get_name(self):
@@ -64,47 +69,55 @@ def choose_neighbors(topo):
     # add performance score to each potential neighbors
     for pot_neighbor in topo:
         if USE_PF:
+            random.seed()
             pot_neighbor.PF = random.randint(1,4)
-
     i = 0
+    pot_list = []
+    for nb in topo:
+        pot_list.append(nb.get_name())
     while i < CHOSEN_NEIGHBORS:
-        if not topo:
+        if not pot_list:
             return chosen_neighbors
-        best_neighbor = choose_best_neighbors(topo)
-        topo = remove_neighbor(topo, best_neighbor)
+        best_neighbor = choose_best_neighbors(topo, pot_list)
+        pot_list = remove_neighbor(pot_list, best_neighbor)
         chosen_neighbors.append(best_neighbor)
         i += 1
     print("chosen neighbors:", chosen_neighbors)
     return chosen_neighbors
 
 
-def choose_best_neighbors(topo):
+def choose_best_neighbors(topo, pot_list):
     """
     chooses the best neighbor from a list of potential neigbhors
     :param topo:
     :return:
     """
-    print("choosing neighbors from list:", topo)
-    best_neighbor = topo[0]
-    for pot_neighbor in topo:
+    print("choosing neighbors from list:", pot_list)
+    pot_topo = []
+    for ia in pot_list:
+        ISD, AS = string_to_int(ia)
+        node = find_AS_in_list(ISD, AS, topo)
+        pot_topo.append(node)
+    best_neighbor = pot_topo[0]
+    for pot_neighbor in pot_topo:
+        if best_neighbor.getdegree() >= best_neighbor.max_neighbors:
+            best_neighbor = pot_neighbor
+        if pot_neighbor.getdegree() >= best_neighbor.max_neighbors:
+            continue
         if best_neighbor.PF > pot_neighbor.PF:
             free_ports = pot_neighbor.max_neighbors - pot_neighbor.getdegree()
             if free_ports > 0:
-                if MAX_NEIGHBORS:
-                    if pot_neighbor.getdegree() <= MAX_TOTAL:
-                        best_neighbor = pot_neighbor
+                best_neighbor = pot_neighbor
         if best_neighbor.PF == pot_neighbor.PF:
             if best_neighbor.getdegree() > pot_neighbor.getdegree():
                 free_ports = pot_neighbor.max_neighbors - pot_neighbor.getdegree()
                 if free_ports > 0:
-                    if MAX_NEIGHBORS:
-                        if pot_neighbor.getdegree() <= MAX_TOTAL:
-                            best_neighbor = pot_neighbor
+                    best_neighbor = pot_neighbor
     print("neighbor chosen: ", best_neighbor)
     return best_neighbor
 
 
-def remove_neighbor(topo, neighbor):
+def remove_neighbor(pot_list, neighbor):
     """
     removes a neighbor from a list of neighbors
     :param topo: list
@@ -112,12 +125,11 @@ def remove_neighbor(topo, neighbor):
     :return: updated list
     """
     i = 0
-    for nb in topo:
-        if nb.ISD == neighbor.ISD:
-            if nb.AS == neighbor.AS:
-                topo.pop(i)
+    for nb in pot_list:
+        if nb == neighbor.get_name():
+            pot_list.pop(i)
         i += 1
-    return topo
+    return pot_list
 
 
 def update_topo(topo, join_as, neighbors):
@@ -130,11 +142,12 @@ def update_topo(topo, join_as, neighbors):
     """
     for nb in neighbors:
         # update join_as neighbors
-        join_as.neighbors.append("%s-%s" % (nb.ISD, nb.AS))
+        join_as.neighbors.append(nb.get_name())
         for entry in topo:
             if entry.ISD == nb.ISD:
                 if entry.AS == nb.AS:
-                    nb.neighbors.append("%s-%s" % (join_as.ISD, join_as.AS))
+                    nb.neighbors.append(join_as.get_name())
+    topo.append(join_as)
     print("updated topology:", topo)
     return topo
 
@@ -145,3 +158,7 @@ def find_AS_in_list(ISD, AS, topo):
             if entry.AS == AS:
                 return entry
     return {}
+
+def string_to_int(IA):
+    list = IA.split("-")
+    return int(list[0]), int(list[1])
