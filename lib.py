@@ -59,6 +59,7 @@ class ASInformation(object):
     def get_name(self):
         return "%s-%s" % (self.ISD, self.AS)
 
+
 def choose_neighbors(topo):
     """
     from a list of potential neighbors choose the
@@ -71,6 +72,7 @@ def choose_neighbors(topo):
         if USE_PF:
             random.seed()
             pot_neighbor.PF = random.randint(1,4)
+            print("PF:",pot_neighbor.PF)
     i = 0
     pot_list = []
     for nb in topo:
@@ -82,7 +84,6 @@ def choose_neighbors(topo):
         pot_list = remove_neighbor(pot_list, best_neighbor)
         chosen_neighbors.append(best_neighbor)
         i += 1
-    print("chosen neighbors:", chosen_neighbors)
     return chosen_neighbors
 
 
@@ -92,7 +93,6 @@ def choose_best_neighbors(topo, pot_list):
     :param topo:
     :return:
     """
-    print("choosing neighbors from list:", pot_list)
     pot_topo = []
     for ia in pot_list:
         ISD, AS = string_to_int(ia)
@@ -113,7 +113,6 @@ def choose_best_neighbors(topo, pot_list):
                 free_ports = pot_neighbor.max_neighbors - pot_neighbor.getdegree()
                 if free_ports > 0:
                     best_neighbor = pot_neighbor
-    print("neighbor chosen: ", best_neighbor)
     return best_neighbor
 
 
@@ -148,7 +147,6 @@ def update_topo(topo, join_as, neighbors):
                 if entry.AS == nb.AS:
                     nb.neighbors.append(join_as.get_name())
     topo.append(join_as)
-    print("updated topology:", topo)
     return topo
 
 
